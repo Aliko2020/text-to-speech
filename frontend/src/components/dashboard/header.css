@@ -1,0 +1,48 @@
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  border-bottom: 0.5px solid rgb(221, 215, 215);
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 42px;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+ul{
+    display: flex;
+    justify-content: center;
+    flex-direction: row;
+    gap: 18px;
+}
+ul li{
+    list-style: none;
+    cursor: pointer;
+    margin-left: 8px;
+    font-weight: bolder;
+}
+
+.logout-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: transparent;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.logout-button:hover {
+  background: red;
+  color: aliceblue;
+}
