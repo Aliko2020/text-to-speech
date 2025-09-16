@@ -28,7 +28,7 @@ ul li{
     list-style: none;
     cursor: pointer;
     margin-left: 8px;
-    font-weight: bolder;
+    font-weight: bold;
 }
 
 .logout-button {

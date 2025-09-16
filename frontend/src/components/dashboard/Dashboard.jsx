@@ -1,15 +1,34 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "react-oidc-context";
-import { FaGithub } from "react-icons/fa";
 import Header from "./Header";
+import Footer from "./Footer";
+import { FaDownload } from 'react-icons/fa';
+
 import "./dashboard.css";
+
+import { convertTextToSpeech } from "../../api/convertApi";
 
 export default function Dashboard() {
   const auth = useAuth();
 
   const [text, setText] = useState("");
+  const [selectedVoice, setSelectedVoice] = useState("Amy"); // Default voice
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [audioUrl, setAudioUrl] = useState(""); 
+  const [audioUrl, setAudioUrl] = useState("");
+  const [error, setError] = useState(null);
+
+  const apiUrl = "https://35smzwnuoc.execute-api.us-east-1.amazonaws.com/dev/convert";
+
+  const voices = [
+    { name: "Amy", label: "Amy (British English)" },
+    { name: "Brian", label: "Brian (British English)" },
+    { name: "Joanna", label: "Joanna (US English)" },
+    { name: "Matthew", label: "Matthew (US English)" },
+    { name: "Aditi", label: "Aditi (Indian English)" },
+    { name: "Raveena", label: "Raveena (Indian English)" },
+    { name: "Mizuki", label: "Mizuki (Japanese)" },
+    { name: "Hans", label: "Hans (German)" },
+  ];
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
@@ -28,29 +47,33 @@ export default function Dashboard() {
     setText(e.target.value);
   };
 
+  const handleVoiceChange = (e) => {
+    setSelectedVoice(e.target.value);
+  };
+
   const handleConvert = async () => {
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      setError("Please enter some text.");
+      return;
+    }
 
     setIsSubmitting(true);
+    setError(null);
+    setAudioUrl("");
 
     try {
-      const response = await fetch("/api/convert", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text }),
-      });
+      const token = auth.user?.access_token;
 
-      if (!response.ok) {
-        throw new Error("Conversion failed");
+      if (!token) {
+        throw new Error("User is not authenticated");
       }
 
-      const data = await response.json();
-
-      setAudioUrl(data.audioUrl);
-    } catch (error) {
-      console.error("Error converting text:", error.message);
+      // ✅ Pass voice to API
+      const result = await convertTextToSpeech(text, token, apiUrl, selectedVoice);
+      setAudioUrl(result.audio_url);
+    } catch (err) {
+      console.error("Error converting text:", err);
+      setError(err.message || "Conversion failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -68,6 +91,7 @@ export default function Dashboard() {
         <div className="card">
           <div className="card-details">
             <h3 className="card-title">Text to Speech Converter</h3>
+
             <textarea
               className="text-area"
               rows={4}
@@ -75,9 +99,20 @@ export default function Dashboard() {
               value={text}
               onChange={handleTextChange}
             />
-            <select className="dropdown">
-              <option>Amy (British English)</option>
+
+            {/* ✅ Voice selection dropdown */}
+            <select
+              className="dropdown"
+              value={selectedVoice}
+              onChange={handleVoiceChange}
+            >
+              {voices.map((voice) => (
+                <option key={voice.name} value={voice.name}>
+                  {voice.label}
+                </option>
+              ))}
             </select>
+
             <button
               className="convert-button"
               onClick={handleConvert}
@@ -85,6 +120,8 @@ export default function Dashboard() {
             >
               {isSubmitting ? "Converting..." : "Convert to Speech"}
             </button>
+
+            {error && <p className="error-message">{error}</p>}
 
             {audioUrl && (
               <>
@@ -97,23 +134,13 @@ export default function Dashboard() {
                   download="converted-audio.mp3"
                   className="download-button"
                 >
+                  <FaDownload style={{ marginRight: '8px' }} />
                   Download Audio
                 </a>
               </>
             )}
           </div>
-
-          <div className="footer-credit">
-            <a
-              href="https://github.com/alikoamos"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="github-link"
-            >
-              <FaGithub className="github-icon" />
-              <span>aliko amos @2025</span>
-            </a>
-          </div>
+          <Footer />
         </div>
       </main>
     </div>

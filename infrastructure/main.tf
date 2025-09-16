@@ -31,7 +31,7 @@ resource "aws_cognito_user_pool_client" "this" {
   allowed_oauth_flows_user_pool_client = true
   callback_urls                         = ["http://localhost:5173/dashboard"]
   logout_urls                           = ["http://localhost:5173"]
-  supported_identity_providers          = ["COGNITO"]
+  supported_identity_providers         = ["COGNITO"]
 }
 
 # Cognito Domain (Hosted UI)
@@ -40,10 +40,18 @@ resource "aws_cognito_user_pool_domain" "this" {
   user_pool_id = aws_cognito_user_pool.this.id
 }
 
-# API Gateway
+# API Gateway HTTP API with CORS
 resource "aws_apigatewayv2_api" "http_api" {
   name          = "${var.project_name}-api"
   protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins = ["*"]
+    allow_methods = ["OPTIONS", "POST", "GET"]
+    allow_headers = ["Content-Type", "Authorization"]
+    expose_headers = []
+    max_age       = 600
+  }
 }
 
 # JWT Authorizer for API Gateway
@@ -60,7 +68,51 @@ resource "aws_apigatewayv2_authorizer" "cognito_auth" {
   }
 }
 
-# Lambda IAM Role
+# Lambda Function (make sure your handler is zipped and uploaded)
+resource "aws_lambda_function" "convert" {
+  function_name = "${var.project_name}-convert"
+  role          = aws_iam_role.lambda_exec.arn
+  handler       = "handler.lambda_handler"
+  runtime       = "python3.9"
+
+  filename         = "../backend/convert/convert.zip"
+  source_code_hash = filebase64sha256("../backend/convert/convert.zip")
+
+  environment {
+    variables = {
+      BUCKET_NAME = aws_s3_bucket.audio.bucket
+      TABLE_NAME  = aws_dynamodb_table.history.name
+    }
+  }
+}
+
+# API Gateway Integration for Lambda
+resource "aws_apigatewayv2_integration" "convert_integration" {
+  api_id           = aws_apigatewayv2_api.http_api.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = aws_lambda_function.convert.invoke_arn
+}
+
+# API Gateway Route with JWT authorization
+resource "aws_apigatewayv2_route" "convert_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /convert"
+  target    = "integrations/${aws_apigatewayv2_integration.convert_integration.id}"
+
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_auth.id
+  authorization_type = "JWT"
+}
+
+# Permission for API Gateway to invoke Lambda
+resource "aws_lambda_permission" "apigw_invoke" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.convert.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
+
+# IAM Role for Lambda Execution
 resource "aws_iam_role" "lambda_exec" {
   name = "${var.project_name}-lambda-exec"
 
@@ -94,12 +146,12 @@ resource "aws_iam_role_policy_attachment" "dynamodb_access" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
 }
 
-# Random suffix for unique bucket
+# Random suffix for unique bucket name
 resource "random_id" "suffix" {
   byte_length = 4
 }
 
-# S3 Bucket
+# S3 Bucket for audio files
 resource "aws_s3_bucket" "audio" {
   bucket = "${var.project_name}-audio-files-${random_id.suffix.hex}"
   tags   = { Name = "tts-audio-bucket" }
@@ -118,7 +170,7 @@ resource "aws_s3_bucket" "audio" {
   })
 }
 
-# DynamoDB Table
+# DynamoDB Table for history
 resource "aws_dynamodb_table" "history" {
   name         = "${var.project_name}-history"
   billing_mode = "PAY_PER_REQUEST"
@@ -134,48 +186,6 @@ resource "aws_dynamodb_table" "history" {
     name = "timestamp"
     type = "S"
   }
-}
-
-# Lambda Function
-resource "aws_lambda_function" "convert" {
-  function_name = "${var.project_name}-convert"
-  role          = aws_iam_role.lambda_exec.arn
-  handler       = "handler.lambda_handler"
-  runtime       = "python3.9"
-
-  filename         = "../backend/convert/convert.zip"
-  source_code_hash = filebase64sha256("../backend/convert/convert.zip")
-
-  environment {
-    variables = {
-      BUCKET_NAME = aws_s3_bucket.audio.bucket
-      TABLE_NAME  = aws_dynamodb_table.history.name
-    }
-  }
-}
-
-# API Gateway Integration & Route
-resource "aws_apigatewayv2_integration" "convert_integration" {
-  api_id           = aws_apigatewayv2_api.http_api.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = aws_lambda_function.convert.invoke_arn
-}
-
-resource "aws_apigatewayv2_route" "convert_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /convert"
-  target    = "integrations/${aws_apigatewayv2_integration.convert_integration.id}"
-
-  authorizer_id      = aws_apigatewayv2_authorizer.cognito_auth.id
-  authorization_type = "JWT"
-}
-
-resource "aws_lambda_permission" "apigw_invoke" {
-  statement_id  = "AllowAPIGatewayInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.convert.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
 
 # Outputs

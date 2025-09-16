@@ -32,15 +32,19 @@
   width: 90%;
   padding: 1rem;
   border-radius: 8px;
-  border: 1px solid #ccc;
   margin-bottom: 1rem;
+  border: 1px solid #ccc;
   resize: none;
 }
 
 .dropdown {
   width: 100%;
   padding: 0.5rem;
+  border-radius: 8px;
   margin-bottom: 1rem;
+  border: 1px solid #ccc;
+  background: #fff;
+  color: #7c7979;
 }
 
 .convert-button {
@@ -55,21 +59,34 @@
 .convert-button:hover {
   background: #6366f1;
 }
-
-.download-button{
-  margin-top: 8px;
+.audio-player {
   width: 100%;
-  background: rgb(21, 173, 21);
-  color: white;
-  padding: 0.75rem;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  border: none;
+  max-width: 100%;
+  display: block;
 }
 
-.download-button:hover{
-   background: rgb(65, 182, 65);
+.download-button {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 10px;
+  padding: 10px 15px;
+  background-color: green;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 14px;
 }
+
+.download-button:hover {
+  background-color: rgb(24, 133, 24);
+}
+.text-area:focus,
+.dropdown:focus {
+  outline: none;
+  box-shadow: none; 
+}
+
 
 .footer-credit {
   margin-top: 1.5rem;

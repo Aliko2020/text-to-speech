@@ -9,7 +9,7 @@ export default function Header({ name, avatar }) {
 
     return (
         <header className="dashboard-header">
-            <h2>Text to Speech</h2>
+            <span>Text to Speech</span>
 
             <div className="user-profile">
                 <ul>
